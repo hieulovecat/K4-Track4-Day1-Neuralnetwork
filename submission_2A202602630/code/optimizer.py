@@ -16,7 +16,7 @@ import math
 import torch
 
 OPTIMIZERS = ("sgd", "sgd_momentum", "adam", "adamw")
-SCHEDULERS = (None, "cosine", "warmup_cosine")
+SCHEDULERS = (None, "cosine", "warmup", "warmup_cosine")
 
 
 def build_optimizer(name: str, params, lr: float, weight_decay: float = 0.0,
@@ -45,6 +45,7 @@ def build_scheduler(optimizer, name: str | None, total_steps: int, warmup_steps:
     name:
         None            : lr cố định (baseline)
         "cosine"        : lr giảm theo cosine từ lr gốc về 0 trong total_steps bước (CosineAnnealingLR)
+        "warmup"        : tăng tuyến tính từ ~0 lên lr gốc trong warmup_steps bước, rồi giữ nguyên
         "warmup_cosine" : tăng tuyến tính từ ~0 lên lr gốc trong warmup_steps bước, rồi cosine về 0
                           (dùng khi thử quy tắc "batch ×k thì lr ×k, kèm khởi động")
     Dùng scheduler ở thí nghiệm nào thì ghi vào cột notes của bảng.
@@ -61,6 +62,8 @@ def build_scheduler(optimizer, name: str | None, total_steps: int, warmup_steps:
     def factor(step: int) -> float:  # hệ số nhân với lr gốc ở bước `step` (0-indexed)
         if step < warmup_steps:
             return (step + 1) / warmup_steps
+        if name == "warmup":
+            return 1.0
         progress = (step - warmup_steps) / max(1, total_steps - warmup_steps)
         return 0.5 * (1.0 + math.cos(math.pi * min(1.0, progress)))
 

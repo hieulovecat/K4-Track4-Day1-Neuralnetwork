@@ -35,12 +35,12 @@ SEED_ROWS = range(2, 7)              # sheet Seeds: A2:A6
 SUMMARY_NOTE_COL = 8                 # sheet Summary: cột H "nhận xét ngắn"
 
 
-def _clean(obj):
+def jsonable(obj):
     """Đưa về kiểu JSON chuẩn: tuple -> list, numpy -> python, NaN/inf -> None."""
     if isinstance(obj, dict):
-        return {k: _clean(v) for k, v in obj.items()}
+        return {k: jsonable(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):
-        return [_clean(v) for v in obj]
+        return [jsonable(v) for v in obj]
     if isinstance(obj, np.generic):
         obj = obj.item()
     if isinstance(obj, float) and not math.isfinite(obj):
@@ -52,7 +52,7 @@ def save_result(result: dict, results_dir: str = "../results") -> str:
     """Ghi cfg, history, summary (KHÔNG ghi best_state) ra <results_dir>/<exp_id>.json. Trả về đường dẫn."""
     out = Path(results_dir)
     out.mkdir(parents=True, exist_ok=True)
-    payload = _clean({k: result[k] for k in ("cfg", "history", "summary")})
+    payload = jsonable({k: result[k] for k in ("cfg", "history", "summary")})
     path = out / f"{result['cfg']['exp_id']}.json"
     with open(path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=1)
@@ -65,6 +65,8 @@ def load_results(results_dir: str = "../results") -> list[dict]:
     for p in sorted(Path(results_dir).glob("*.json")):
         with open(p, encoding="utf-8") as f:
             r = json.load(f)
+        if not {"cfg", "history", "summary"} <= r.keys():
+            continue  # ví dụ base-s1_eval_result.json: không phải kết quả một lần chạy
         r["cfg"]["hidden"] = tuple(r["cfg"]["hidden"])
         results.append(r)
     return sorted(results, key=lambda r: r["cfg"]["exp_id"])
